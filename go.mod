@@ -1,0 +1,19 @@
+module go-http2mqtt
+
+go 1.12
+
+require (
+	github.com/BurntSushi/toml v0.3.1
+	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
+	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
+	github.com/dustin/go-humanize v1.0.0
+	github.com/eclipse/paho.mqtt.golang v1.2.0
+	github.com/gin-contrib/pprof v1.2.1
+	github.com/gin-gonic/gin v1.6.2
+	github.com/google/pprof v0.0.0-20200417002340-c6e0a841f49a // indirect
+	github.com/gorilla/mux v1.7.4
+	github.com/satori/go.uuid v1.2.0
+	github.com/sirupsen/logrus v1.4.2
+	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
+	gopkg.in/alecthomas/kingpin.v2 v2.2.6
+)
