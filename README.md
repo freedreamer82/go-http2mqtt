@@ -97,7 +97,7 @@ event:/topic/1
 data:"eyJjb21tYW5kIjoicmVzZXQifQ=="
 
 ```
-curl -u $user:$pass curl -i -X GET -H "Content-Type: application/json" http://localhost:8000/streamsr
+curl -u $user:$pass curl -i -X GET -H "Content-Type: application/json" http://localhost:8000/streams
 ```
 
 ### Development
