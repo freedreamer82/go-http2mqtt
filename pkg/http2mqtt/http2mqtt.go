@@ -4,7 +4,7 @@ import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"go-http2mqtt/internal/pkg/sseClients"
+	"http2mqtt/pkg/sseClients"
 	"io"
 	"log"
 	"math/rand"
