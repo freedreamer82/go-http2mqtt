@@ -1,4 +1,4 @@
-module http2mqtt
+module github.com/freedreamer82/go-http2mqtt
 
 go 1.12
 

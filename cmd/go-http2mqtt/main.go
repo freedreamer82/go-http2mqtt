@@ -3,14 +3,14 @@ package main
 import (
 	//	"github.com/go-delve/delve/pkg/config"
 
+	"github.com/freedreamer82/go-http2mqtt/internal/pkg/config"
 	"encoding/json"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/freedreamer82/go-http2mqtt/pkg/http2mqtt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"http2mqtt/internal/pkg/config"
-	"http2mqtt/pkg/http2mqtt"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"io/ioutil"
 	"net/http"
