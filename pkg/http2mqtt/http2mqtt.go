@@ -47,6 +47,7 @@ type Http2Mqtt struct {
 	subs          []SubScribeMessage
 	profileEnable bool
 	prefixRestApi string
+	streamEnabled bool
 }
 
 func getRandomClientId() string {
@@ -75,7 +76,7 @@ func WithOptionPrefix(prefix string) Http2MqttOption {
 
 func New(mqttOpts *MQTT.ClientOptions, opts ...Http2MqttOption) *Http2Mqtt {
 
-	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false, prefixRestApi: ""}
+	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false, prefixRestApi: "", streamEnabled: true}
 
 	for _, opt := range opts {
 		// Call the option giving the instantiated
@@ -94,11 +95,15 @@ func New(mqttOpts *MQTT.ClientOptions, opts ...Http2MqttOption) *Http2Mqtt {
 	return &h
 }
 
-func (h *Http2Mqtt) GetMqttClient() *MQTT.Client{
+func (h *Http2Mqtt) GetMqttClient() *MQTT.Client {
 
-	return  &h.mqttClient
+	return &h.mqttClient
 }
 
+func (h *Http2Mqtt) EnableStream(status bool) {
+
+	h.streamEnabled = false
+}
 
 func (h *Http2Mqtt) Run(addrHttp string) {
 
@@ -316,7 +321,9 @@ func (m *Http2Mqtt) setupGin() {
 
 				case msg := <-ch:
 					if msg != nil {
-						c.SSEvent(msg.Topic(), msg.Payload())
+						if m.streamEnabled {
+							c.SSEvent(msg.Topic(), msg.Payload())
+						}
 					} else {
 						return false
 					}
