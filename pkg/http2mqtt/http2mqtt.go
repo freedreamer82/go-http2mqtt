@@ -2,9 +2,9 @@ package http2mqtt
 
 import (
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+	"github.com/freedreamer82/go-http2mqtt/pkg/sseClients"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/freedreamer82/go-http2mqtt/pkg/sseClients"
 	"io"
 	"log"
 	"math/rand"
@@ -46,6 +46,7 @@ type Http2Mqtt struct {
 	subsMutex     sync.Mutex
 	subs          []SubScribeMessage
 	profileEnable bool
+	prefixRestApi string
 }
 
 func getRandomClientId() string {
@@ -60,7 +61,7 @@ func getRandomClientId() string {
 
 func New(mqttOpts *MQTT.ClientOptions) *Http2Mqtt {
 
-	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false}
+	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false, prefixRestApi: ""}
 
 	router := gin.New()
 	h.Router = router
@@ -72,7 +73,7 @@ func New(mqttOpts *MQTT.ClientOptions) *Http2Mqtt {
 }
 
 func NewWithRouter(mqttOpts *MQTT.ClientOptions, router *gin.Engine) *Http2Mqtt {
-	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false}
+	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false, prefixRestApi: ""}
 
 	h.Router = router
 	h.mqttOpts = mqttOpts
@@ -89,6 +90,18 @@ func (h *Http2Mqtt) Run(addrHttp string) {
 		go h.Router.Run(add)
 	}(addrHttp)
 
+}
+
+func (h *Http2Mqtt) SetRestPathPrefix(prefix string) {
+
+	ps := len(prefix)
+
+	//remove last /
+	if ps > 0 && prefix[ps-1] == '/' {
+		prefix = prefix[:ps-1]
+	}
+
+	h.prefixRestApi = prefix
 }
 
 func (h *Http2Mqtt) EnableProfiling(enable bool) {
@@ -200,7 +213,7 @@ func (m *Http2Mqtt) setupGin() {
 	noauthorized := m.Router
 
 	// Ping Test
-	noauthorized.GET("/ping", func(c *gin.Context) {
+	noauthorized.GET(m.prefixRestApi+"/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
 
@@ -213,7 +226,7 @@ func (m *Http2Mqtt) setupGin() {
 	}
 
 	// Post To Topic
-	authorized.POST("publish", func(c *gin.Context) {
+	authorized.POST(m.prefixRestApi+"/publish", func(c *gin.Context) {
 		var msg = PublishMessage{Retained: false, Qos: 0, Message: "", Topic: ""}
 		// Validate Payloadd
 		if err := c.ShouldBindJSON(&msg); err != nil {
@@ -231,7 +244,7 @@ func (m *Http2Mqtt) setupGin() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	authorized.GET("/broker", func(c *gin.Context) {
+	authorized.GET(m.prefixRestApi+"/broker", func(c *gin.Context) {
 
 		m.subsMutex.Lock()
 		defer m.subsMutex.Unlock()
@@ -240,7 +253,7 @@ func (m *Http2Mqtt) setupGin() {
 			"broker": m.mqttOpts.Servers[0].Host, "user": m.mqttOpts.Servers[0].User, "subscriptions": m.subs})
 	})
 
-	authorized.POST("/subscribe", func(c *gin.Context) {
+	authorized.POST(m.prefixRestApi+"/subscribe", func(c *gin.Context) {
 		var msg = SubScribeMessage{Qos: 0, Topic: ""}
 
 		if !m.mqttClient.IsConnected() {
@@ -268,7 +281,7 @@ func (m *Http2Mqtt) setupGin() {
 	})
 
 	// Streams SSE
-	authorized.GET("/streams", func(c *gin.Context) {
+	authorized.GET(m.prefixRestApi+"/streams", func(c *gin.Context) {
 
 		data := make(sseClients.SseClientData)
 
@@ -304,6 +317,6 @@ func (m *Http2Mqtt) setupGin() {
 	})
 
 	if (m.profileEnable) {
-		pprof.Register(m.Router, "debug/pprof")
+		pprof.Register(m.Router, m.prefixRestApi+"/debug/pprof")
 	}
 }
