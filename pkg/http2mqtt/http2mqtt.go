@@ -79,13 +79,14 @@ func NewWithRouter(mqttOpts *MQTT.ClientOptions, router *gin.Engine) *Http2Mqtt 
 	h.mqttOpts = mqttOpts
 
 	h.setupMQTT()
+	h.setupGin()
 
 	return &h
 }
 
 func (h *Http2Mqtt) Run(addrHttp string) {
 
-	h.setupGin()
+
 	defer func(add string) {
 		go h.Router.Run(add)
 	}(addrHttp)
