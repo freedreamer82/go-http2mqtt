@@ -123,7 +123,7 @@ func main() {
 
 		_router.GET("/config", gin.WrapF(getRestConfig))
 		_router.POST("/config", gin.WrapF(setRestConfig))
-		_bridge = http2mqtt.NewWithRouter(&opts, _router)
+		_bridge = http2mqtt.New(&opts, http2mqtt.WithOptionRouter(_router))
 
 	} else {
 		_bridge = http2mqtt.New(&opts)

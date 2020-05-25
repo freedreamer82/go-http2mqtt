@@ -59,23 +59,33 @@ func getRandomClientId() string {
 	return "http2mqtt-" + string(bytes)
 }
 
-func New(mqttOpts *MQTT.ClientOptions) *Http2Mqtt {
+type Http2MqttOption func(*Http2Mqtt)
 
-	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false, prefixRestApi: ""}
-
-	router := gin.New()
-	h.Router = router
-	h.mqttOpts = mqttOpts
-
-	h.setupMQTT()
-
-	return &h
+func WithOptionRouter(router *gin.Engine) Http2MqttOption {
+	return func(h *Http2Mqtt) {
+		h.Router = router
+	}
 }
 
-func NewWithRouter(mqttOpts *MQTT.ClientOptions, router *gin.Engine) *Http2Mqtt {
+func WithOptionPrefix(prefix string) Http2MqttOption {
+	return func(h *Http2Mqtt) {
+		h.setRestPathPrefix(prefix)
+	}
+}
+
+func New(mqttOpts *MQTT.ClientOptions, opts ...Http2MqttOption) *Http2Mqtt {
+
 	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false, prefixRestApi: ""}
 
-	h.Router = router
+	for _, opt := range opts {
+		// Call the option giving the instantiated
+		// *House as the argument
+		opt(&h)
+	}
+
+	if h.Router == nil {
+		h.Router = gin.New()
+	}
 	h.mqttOpts = mqttOpts
 
 	h.setupMQTT()
@@ -86,14 +96,13 @@ func NewWithRouter(mqttOpts *MQTT.ClientOptions, router *gin.Engine) *Http2Mqtt 
 
 func (h *Http2Mqtt) Run(addrHttp string) {
 
-
 	defer func(add string) {
 		go h.Router.Run(add)
 	}(addrHttp)
 
 }
 
-func (h *Http2Mqtt) SetRestPathPrefix(prefix string) {
+func (h *Http2Mqtt) setRestPathPrefix(prefix string) {
 
 	ps := len(prefix)
 
