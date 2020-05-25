@@ -48,6 +48,7 @@ type Http2Mqtt struct {
 	profileEnable bool
 	prefixRestApi string
 	streamEnabled bool
+	streamChannel chan MQTT.Message
 }
 
 func getRandomClientId() string {
@@ -103,6 +104,12 @@ func (h *Http2Mqtt) GetMqttClient() *MQTT.Client {
 func (h *Http2Mqtt) EnableStream(status bool) {
 
 	h.streamEnabled = false
+}
+
+func (h *Http2Mqtt) SetStreamChannel(ch chan MQTT.Message) {
+
+	h.streamChannel = ch
+
 }
 
 func (h *Http2Mqtt) Run(addrHttp string) {
@@ -170,6 +177,9 @@ func (m *Http2Mqtt) onBrokerData(client MQTT.Client, msg MQTT.Message) {
 			//casting to *chan of MQTT.Message
 			ch := ssecl.Data["chan"].(*chan MQTT.Message)
 			*ch <- msg
+			if m.streamChannel != nil {
+				m.streamChannel <- msg
+			}
 		}
 	}
 }
