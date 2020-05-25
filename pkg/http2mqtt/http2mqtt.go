@@ -94,6 +94,12 @@ func New(mqttOpts *MQTT.ClientOptions, opts ...Http2MqttOption) *Http2Mqtt {
 	return &h
 }
 
+func (h *Http2Mqtt) GetMqttClient() *MQTT.Client{
+
+	return  &h.mqttClient
+}
+
+
 func (h *Http2Mqtt) Run(addrHttp string) {
 
 	defer func(add string) {
