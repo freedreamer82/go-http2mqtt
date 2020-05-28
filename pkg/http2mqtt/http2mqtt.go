@@ -168,7 +168,12 @@ func (m *Http2Mqtt) subscribeMessagesToBroker() error {
 
 func (m *Http2Mqtt) onBrokerData(client MQTT.Client, msg MQTT.Message) {
 
-	log.Printf("* [%s] %s\n", msg.Topic(), string(msg.Payload()))
+	//log.Printf("* [%s] %s\n", msg.Topic(), string(msg.Payload()))
+
+	if m.streamChannel != nil {
+		m.streamChannel <- msg
+	}
+
 	//m.mqttMsgChan <- msg
 	l := m.sseCLients.GetClientsList()
 	for ssecl, isConnected := range l {
@@ -177,9 +182,7 @@ func (m *Http2Mqtt) onBrokerData(client MQTT.Client, msg MQTT.Message) {
 			//casting to *chan of MQTT.Message
 			ch := ssecl.Data["chan"].(*chan MQTT.Message)
 			*ch <- msg
-			if m.streamChannel != nil {
-				m.streamChannel <- msg
-			}
+
 		}
 	}
 }
