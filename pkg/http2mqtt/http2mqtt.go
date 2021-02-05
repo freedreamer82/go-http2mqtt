@@ -78,6 +78,8 @@ func WithOptionPrefix(prefix string) Http2MqttOption {
 
 func New(mqttOpts *MQTT.ClientOptions, opts ...Http2MqttOption) *Http2Mqtt {
 
+	rand.Seed(time.Now().UnixNano())
+	
 	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false, prefixRestApi: "", streamEnabled: true}
 
 	for _, opt := range opts {
