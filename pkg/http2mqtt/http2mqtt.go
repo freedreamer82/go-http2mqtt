@@ -15,7 +15,7 @@ import (
 	//"time"
 )
 
-const MaxClientIdLen = 10
+const MaxClientIdLen = 14
 
 func (s *Http2Mqtt) SetGinAuth(user string, password string) {
 	s.user = user
@@ -52,13 +52,14 @@ type Http2Mqtt struct {
 }
 
 func getRandomClientId() string {
-	const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	var bytes = make([]byte, MaxClientIdLen)
-	rand.Read(bytes)
-	for i, b := range bytes {
-		bytes[i] = alphanum[b%byte(len(alphanum))]
+	var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	b := make([]rune, MaxClientIdLen)
+	for i := range b {
+		b[i] = characterRunes[rand.Intn(len(characterRunes))]
 	}
-	return "http2mqtt-" + string(bytes)
+	id := "http2mqtt-" + string(b)
+	log.Println("ID: ", id)
+	return id
 }
 
 type Http2MqttOption func(*Http2Mqtt)
