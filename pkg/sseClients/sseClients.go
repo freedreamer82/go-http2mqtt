@@ -57,7 +57,7 @@ func New() *SseCLients {
 
 func (manager *SseCLients) RemoveCLient(conn * SseClient) {
 	if _, ok := manager.clients[conn]; ok {
-		fmt.Println("removing" + conn.Id)
+	//	fmt.Println("removing" + conn.Id)
 		delete(manager.clients, conn)
 	}
 }
