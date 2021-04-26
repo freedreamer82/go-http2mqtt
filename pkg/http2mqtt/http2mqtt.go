@@ -37,7 +37,7 @@ type SubScribeMessage struct {
 
 type Http2Mqtt struct {
 	Router        *gin.Engine
-	Group 		  *gin.RouterGroup
+	Group         *gin.RouterGroup
 	MqttBrokerURL string
 	mqttClient    MQTT.Client
 	mqttOpts      *MQTT.ClientOptions
@@ -75,7 +75,6 @@ func WithOptionRouterGroup(group *gin.RouterGroup) Http2MqttOption {
 		h.Group = group
 	}
 }
-
 
 func WithOptionPrefix(prefix string) Http2MqttOption {
 	return func(h *Http2Mqtt) {
@@ -255,7 +254,7 @@ func (m *Http2Mqtt) setupGin() {
 
 	m.sseCLients = sseClients.New()
 	if m.Group == nil {
-		m.Group  = &m.Router.RouterGroup
+		m.Group = &m.Router.RouterGroup
 	}
 	// Ping Test
 	m.Group.GET(m.prefixRestApi+"/ping", func(c *gin.Context) {
@@ -367,4 +366,3 @@ func (m *Http2Mqtt) setupGin() {
 		pprof.Register(m.Router, m.prefixRestApi+"/debug/pprof")
 	}
 }
-
