@@ -1,10 +1,6 @@
 package http2mqtt
 
 import (
-	MQTT "github.com/eclipse/paho.mqtt.golang"
-	"github.com/freedreamer82/go-http2mqtt/pkg/sseClients"
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
 	"io"
 	"log"
 	"math/rand"
@@ -12,10 +8,14 @@ import (
 	"sync"
 	"time"
 
+	MQTT "github.com/eclipse/paho.mqtt.golang"
+	"github.com/freedreamer82/go-http2mqtt/pkg/sseClients"
+	"github.com/gin-contrib/pprof"
+	"github.com/gin-gonic/gin"
 	//"time"
 )
 
-const MaxClientIdLen = 10
+const MaxClientIdLen = 14
 
 func (s *Http2Mqtt) SetGinAuth(user string, password string) {
 	s.user = user
@@ -37,6 +37,7 @@ type SubScribeMessage struct {
 
 type Http2Mqtt struct {
 	Router        *gin.Engine
+	Group 		  *gin.RouterGroup
 	MqttBrokerURL string
 	mqttClient    MQTT.Client
 	mqttOpts      *MQTT.ClientOptions
@@ -52,13 +53,14 @@ type Http2Mqtt struct {
 }
 
 func getRandomClientId() string {
-	const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	var bytes = make([]byte, MaxClientIdLen)
-	rand.Read(bytes)
-	for i, b := range bytes {
-		bytes[i] = alphanum[b%byte(len(alphanum))]
+	var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	b := make([]rune, MaxClientIdLen)
+	for i := range b {
+		b[i] = characterRunes[rand.Intn(len(characterRunes))]
 	}
-	return "http2mqtt-" + string(bytes)
+	id := "http2mqtt-" + string(b)
+	log.Println("ID: ", id)
+	return id
 }
 
 type Http2MqttOption func(*Http2Mqtt)
@@ -68,6 +70,12 @@ func WithOptionRouter(router *gin.Engine) Http2MqttOption {
 		h.Router = router
 	}
 }
+func WithOptionRouterGroup(group *gin.RouterGroup) Http2MqttOption {
+	return func(h *Http2Mqtt) {
+		h.Group = group
+	}
+}
+
 
 func WithOptionPrefix(prefix string) Http2MqttOption {
 	return func(h *Http2Mqtt) {
@@ -76,6 +84,8 @@ func WithOptionPrefix(prefix string) Http2MqttOption {
 }
 
 func New(mqttOpts *MQTT.ClientOptions, opts ...Http2MqttOption) *Http2Mqtt {
+
+	rand.Seed(time.Now().UnixNano())
 
 	h := Http2Mqtt{Router: nil, MqttBrokerURL: "", mqttOpts: nil, user: "", password: "", profileEnable: false, prefixRestApi: "", streamEnabled: true}
 
@@ -208,7 +218,7 @@ func (m *Http2Mqtt) brokerStartConnect() {
 		for {
 			select {
 			case <-retry.C:
-				if ! m.mqttClient.IsConnected() {
+				if !m.mqttClient.IsConnected() {
 					if token := m.mqttClient.Connect(); token.Wait() && token.Error() != nil {
 						log.Println("failed connection to broker retrying...")
 					} else {
@@ -244,23 +254,24 @@ func (m *Http2Mqtt) setupMQTT() {
 func (m *Http2Mqtt) setupGin() {
 
 	m.sseCLients = sseClients.New()
-	noauthorized := m.Router
-
+	if m.Group == nil {
+		m.Group  = &m.Router.RouterGroup
+	}
 	// Ping Test
-	noauthorized.GET(m.prefixRestApi+"/ping", func(c *gin.Context) {
+	m.Group.GET(m.prefixRestApi+"/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
 
-	authorized := &m.Router.RouterGroup
+	//authorized := &m.Router.RouterGroup
 
 	if m.user != "" && m.password != "" {
-		authorized = m.Router.Group("/", gin.BasicAuth(gin.Accounts{
+		m.Group = m.Router.Group("/", gin.BasicAuth(gin.Accounts{
 			m.user: m.password, // user:foo password:bar
 		}))
 	}
 
 	// Post To Topic
-	authorized.POST(m.prefixRestApi+"/publish", func(c *gin.Context) {
+	m.Group.POST(m.prefixRestApi+"/publish", func(c *gin.Context) {
 		var msg = PublishMessage{Retained: false, Qos: 0, Message: "", Topic: ""}
 		// Validate Payloadd
 		if err := c.ShouldBindJSON(&msg); err != nil {
@@ -278,7 +289,7 @@ func (m *Http2Mqtt) setupGin() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	authorized.GET(m.prefixRestApi+"/broker", func(c *gin.Context) {
+	m.Group.GET(m.prefixRestApi+"/broker", func(c *gin.Context) {
 
 		m.subsMutex.Lock()
 		defer m.subsMutex.Unlock()
@@ -287,7 +298,7 @@ func (m *Http2Mqtt) setupGin() {
 			"broker": m.mqttOpts.Servers[0].Host, "user": m.mqttOpts.Servers[0].User, "subscriptions": m.subs})
 	})
 
-	authorized.POST(m.prefixRestApi+"/subscribe", func(c *gin.Context) {
+	m.Group.POST(m.prefixRestApi+"/subscribe", func(c *gin.Context) {
 		var msg = SubScribeMessage{Qos: 0, Topic: ""}
 
 		if !m.mqttClient.IsConnected() {
@@ -306,7 +317,7 @@ func (m *Http2Mqtt) setupGin() {
 		m.subsMutex.Unlock()
 
 		err := m.subscribeMessagesToBroker()
-		if (err == nil) {
+		if err == nil {
 			c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		} else {
 			c.JSON(http.StatusOK, gin.H{"status": "error", "error": err.Error()})
@@ -315,7 +326,7 @@ func (m *Http2Mqtt) setupGin() {
 	})
 
 	// Streams SSE
-	authorized.GET(m.prefixRestApi+"/streams", func(c *gin.Context) {
+	m.Group.GET(m.prefixRestApi+"/streams", func(c *gin.Context) {
 
 		data := make(sseClients.SseClientData)
 
@@ -352,7 +363,8 @@ func (m *Http2Mqtt) setupGin() {
 		}
 	})
 
-	if (m.profileEnable) {
+	if m.profileEnable {
 		pprof.Register(m.Router, m.prefixRestApi+"/debug/pprof")
 	}
 }
+
