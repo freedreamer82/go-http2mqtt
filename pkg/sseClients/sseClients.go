@@ -20,14 +20,7 @@ type SseClient struct {
 	Data SseClientData
 }
 
-func (m *SseCLients) GetMutex() *sync.Mutex {
-	return &m.mutex
-}
-
 func (m *SseCLients) RegisterNewCLient() *SseClient {
-
-	defer m.mutex.Unlock()
-	m.mutex.Lock()
 
 	var err error
 	u1 := uuid.Must(uuid.NewV4(), err)
@@ -78,4 +71,17 @@ func (manager *SseCLients) RemoveCLient(conn *SseClient) {
 		//	fmt.Println("removing" + conn.Id)
 		delete(manager.clients, conn)
 	}
+}
+
+func (m *SseCLients) FuncSafeIterationForClients(fn func(client *SseClient, isConnected bool) bool) bool {
+	defer m.mutex.Unlock()
+	m.mutex.Lock()
+
+	for ssecl, isConnected := range m.clients {
+		if ok := fn(ssecl, isConnected); ok == false {
+			return false
+		}
+	}
+
+	return true
 }
