@@ -3,14 +3,11 @@ package sseClients
 import (
 	//	"fmt"
 
-	"sync"
-
 	uuid "github.com/satori/go.uuid"
 )
 
 type SseCLients struct {
 	clients map[*SseClient]bool
-	mutex   sync.Mutex
 }
 
 type SseClientData map[string]interface{}
@@ -22,9 +19,6 @@ type SseClient struct {
 
 func (m *SseCLients) RegisterNewCLient() *SseClient {
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	var err error
 	u1 := uuid.Must(uuid.NewV4(), err)
 
@@ -35,16 +29,10 @@ func (m *SseCLients) RegisterNewCLient() *SseClient {
 
 func (m *SseCLients) GetClientsList() map[*SseClient]bool {
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	return m.clients
 }
 
 func (m *SseCLients) RegisterNewCLientWithData(data SseClientData) *SseClient {
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	var err error
 	u1 := uuid.Must(uuid.NewV4(), err)
@@ -67,9 +55,6 @@ func New() *SseCLients {
 
 func (manager *SseCLients) SetDisconnected(conn *SseClient) {
 
-	manager.mutex.Unlock()
-	defer manager.mutex.Unlock()
-
 	if _, ok := manager.clients[conn]; ok {
 		manager.clients[conn] = false
 	}
@@ -77,20 +62,14 @@ func (manager *SseCLients) SetDisconnected(conn *SseClient) {
 
 func (manager *SseCLients) RemoveCLient(conn *SseClient) {
 
-	manager.mutex.Lock()
-
 	if _, ok := manager.clients[conn]; ok {
 		//	fmt.Println("removing" + conn.Id)
 		delete(manager.clients, conn)
 	}
 
-	manager.mutex.Unlock()
 }
 
 func (m *SseCLients) PurgeDisconnected() {
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	cls := m.clients
 
@@ -106,9 +85,6 @@ func (m *SseCLients) PurgeDisconnected() {
 }
 
 func (m *SseCLients) FuncIterationForClients(fn func(client *SseClient, isConnected bool) bool) bool {
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	for ssecl, isConnected := range m.clients {
 		if ok := fn(ssecl, isConnected); ok == false {
