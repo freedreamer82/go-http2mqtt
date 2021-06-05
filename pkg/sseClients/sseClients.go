@@ -22,6 +22,9 @@ type SseClient struct {
 
 func (m *SseCLients) RegisterNewCLient() *SseClient {
 
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	var err error
 	u1 := uuid.Must(uuid.NewV4(), err)
 
@@ -59,23 +62,50 @@ func New() *SseCLients {
 
 	manager.clients = make(map[*SseClient]bool)
 
-	manager.mutex = sync.Mutex{}
-
 	return manager
+}
+
+func (manager *SseCLients) SetDisconnected(conn *SseClient) {
+
+	manager.mutex.Unlock()
+	defer manager.mutex.Unlock()
+
+	if _, ok := manager.clients[conn]; ok {
+		manager.clients[conn] = false
+	}
 }
 
 func (manager *SseCLients) RemoveCLient(conn *SseClient) {
 
 	manager.mutex.Lock()
-	defer manager.mutex.Unlock()
 
 	if _, ok := manager.clients[conn]; ok {
 		//	fmt.Println("removing" + conn.Id)
 		delete(manager.clients, conn)
 	}
+
+	manager.mutex.Unlock()
 }
 
-func (m *SseCLients) FuncSafeIterationForClients(fn func(client *SseClient, isConnected bool) bool) bool {
+func (m *SseCLients) PurgeDisconnected() {
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	cls := m.clients
+
+	for cl, isConnected := range m.clients {
+		if !isConnected {
+			delete(cls, cl)
+		}
+
+	}
+
+	m.clients = cls
+
+}
+
+func (m *SseCLients) FuncIterationForClients(fn func(client *SseClient, isConnected bool) bool) bool {
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
