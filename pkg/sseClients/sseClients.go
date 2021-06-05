@@ -32,16 +32,16 @@ func (m *SseCLients) RegisterNewCLient() *SseClient {
 
 func (m *SseCLients) GetClientsList() map[*SseClient]bool {
 
-	defer m.mutex.Unlock()
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	return m.clients
 }
 
 func (m *SseCLients) RegisterNewCLientWithData(data SseClientData) *SseClient {
 
-	defer m.mutex.Unlock()
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	var err error
 	u1 := uuid.Must(uuid.NewV4(), err)
@@ -59,13 +59,15 @@ func New() *SseCLients {
 
 	manager.clients = make(map[*SseClient]bool)
 
+	manager.mutex = sync.Mutex{}
+
 	return manager
 }
 
 func (manager *SseCLients) RemoveCLient(conn *SseClient) {
 
-	defer manager.mutex.Unlock()
 	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
 
 	if _, ok := manager.clients[conn]; ok {
 		//	fmt.Println("removing" + conn.Id)
@@ -74,8 +76,9 @@ func (manager *SseCLients) RemoveCLient(conn *SseClient) {
 }
 
 func (m *SseCLients) FuncSafeIterationForClients(fn func(client *SseClient, isConnected bool) bool) bool {
-	defer m.mutex.Unlock()
+
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	for ssecl, isConnected := range m.clients {
 		if ok := fn(ssecl, isConnected); ok == false {
