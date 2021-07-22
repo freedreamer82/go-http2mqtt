@@ -1,13 +1,14 @@
 package sseClients
 
 import (
-	//	"fmt"
+	"sync"
 
 	uuid "github.com/satori/go.uuid"
 )
 
 type SseCLients struct {
-	clients map[*SseClient]bool
+	// clients map[*SseClient]bool
+	clients sync.Map
 }
 
 type SseClientData map[string]interface{}
@@ -27,9 +28,21 @@ func (m *SseCLients) RegisterNewCLient() *SseClient {
 	return &cl
 }
 
-func (m *SseCLients) GetClientsList() map[*SseClient]bool {
+// func (m *SseCLients) GetClientsList() map[*SseClient]bool {
 
-	return m.clients
+// 	return m.clients
+// }
+
+func (m *SseCLients) GetRegisteredClients() int {
+
+	cnt := 0
+	m.clients.Range(func(key, value interface{}) bool {
+		cnt++
+		return true
+	})
+
+	return cnt
+
 }
 
 func (m *SseCLients) RegisterNewCLientWithData(data SseClientData) *SseClient {
@@ -39,7 +52,9 @@ func (m *SseCLients) RegisterNewCLientWithData(data SseClientData) *SseClient {
 
 	cl := SseClient{Id: u1.String(), Data: data}
 
-	m.clients[&cl] = true
+	//func (m *Map) Store(key, value interface{})
+	// Key and value are interface types, which can store data of any type
+	m.clients.Store(&cl, true)
 
 	return &cl
 }
@@ -48,49 +63,50 @@ func New() *SseCLients {
 
 	manager := new(SseCLients)
 
-	manager.clients = make(map[*SseClient]bool)
-
 	return manager
 }
 
 func (manager *SseCLients) SetDisconnected(conn *SseClient) {
-
-	if _, ok := manager.clients[conn]; ok {
-		manager.clients[conn] = false
+	// func (m *Map) Load(key interface{}) (value interface{}, ok bool)
+	// Key: key, value: if the data exists, the corresponding value will be returned; if not, nil will be returned. ok: indicates whether the value is found
+	// Remember to process data assertions
+	_, ok := manager.clients.Load(conn)
+	if ok {
+		manager.clients.Store(conn, false)
 	}
+
 }
 
 func (manager *SseCLients) RemoveCLient(conn *SseClient) {
 
-	if _, ok := manager.clients[conn]; ok {
-		//	fmt.Println("removing" + conn.Id)
-		delete(manager.clients, conn)
-	}
+	manager.clients.Delete(conn)
 
 }
 
 func (m *SseCLients) PurgeDisconnected() {
 
-	cls := m.clients
-
-	for cl, isConnected := range m.clients {
-		if !isConnected {
-			delete(cls, cl)
+	//func (m *Map) Range(f func(key, value interface{}) bool)
+	// The callback function used by the user to process data. The parameters of the callback function are key, value and the return value is bool
+	m.clients.Range(func(key, value interface{}) bool {
+		if value == false {
+			m.clients.Delete(key)
 		}
 
-	}
-
-	m.clients = cls
+		return true
+	})
 
 }
 
 func (m *SseCLients) FuncIterationForClients(fn func(client *SseClient, isConnected bool) bool) bool {
 
-	for ssecl, isConnected := range m.clients {
-		if ok := fn(ssecl, isConnected); ok == false {
-			return false
+	m.clients.Range(func(key, value interface{}) bool {
+		if value == true {
+			if ok := fn(key.(*SseClient), value.(bool)); ok == false {
+				return false
+			}
 		}
-	}
+		return true
+	})
 
 	return true
 }

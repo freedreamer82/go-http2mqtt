@@ -184,16 +184,18 @@ func (m *Http2Mqtt) onBrokerData(client MQTT.Client, msg MQTT.Message) {
 	}
 
 	//m.mqttMsgChan <- msg
-	l := m.sseCLients.GetClientsList()
-	for ssecl, isConnected := range l {
+	m.sseCLients.FuncIterationForClients(func(ssecl *sseClients.SseClient, isConnected bool) bool {
 
 		if isConnected {
 			//casting to *chan of MQTT.Message
 			ch := ssecl.Data["chan"].(*chan MQTT.Message)
 			*ch <- msg
-
+			return true
 		}
-	}
+
+		return false
+	})
+
 }
 
 func (m *Http2Mqtt) onBrokerConnect(client MQTT.Client) {
