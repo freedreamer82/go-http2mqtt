@@ -121,6 +121,16 @@ func (h *Http2Mqtt) SetStreamChannel(ch chan MQTT.Message) {
 
 }
 
+func (h *Http2Mqtt) GetStreamChannel() chan MQTT.Message {
+
+	return h.streamChannel
+}
+
+func (h *Http2Mqtt) GetSubscriptions() []SubScribeMessage {
+
+	return h.subs
+}
+
 func (h *Http2Mqtt) Run(addrHttp string) {
 
 	defer func(add string) {
