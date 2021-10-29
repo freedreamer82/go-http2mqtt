@@ -1,6 +1,7 @@
 package http2mqtt
 
 import (
+	"encoding/json"
 	"io"
 	"log"
 	"math/rand"
@@ -24,10 +25,10 @@ func (s *Http2Mqtt) SetGinAuth(user string, password string) {
 
 // PublishMessage is the sample data transfer object for publish http route
 type PublishMessage struct {
-	Topic    string `binding:"required" json:"topic"`
-	Message  string `binding:"required" json:"data"`
-	Qos      byte   `json:"qos"`
-	Retained bool   `json:"retained"`
+	Topic    string                 `binding:"required" json:"topic"`
+	Message  json.RawMessage `binding:"required" json:"data"`
+	Qos      byte                   `json:"qos"`
+	Retained bool                   `json:"retained"`
 }
 
 type SubScribeMessage struct {
@@ -283,15 +284,16 @@ func (m *Http2Mqtt) setupGin() {
 
 	// Post To Topic
 	m.Group.POST(m.prefixRestApi+"/publish", func(c *gin.Context) {
-		var msg = PublishMessage{Retained: false, Qos: 0, Message: "", Topic: ""}
+		var msg = PublishMessage{Retained: false, Qos: 0, Message: nil, Topic: ""}
 		// Validate Payloadd
 		if err := c.ShouldBindJSON(&msg); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": err.Error()})
 			return
 		}
 		// Go For MQTT Publish
+		payload, _ := json.Marshal(msg.Message)
 		client := m.mqttClient
-		if token := client.Publish(msg.Topic, msg.Qos, msg.Retained, msg.Message); token.Error() != nil {
+		if token := client.Publish(msg.Topic, msg.Qos, msg.Retained, payload); token.Error() != nil {
 			// Return Error
 			log.Println("Error:", token.Error())
 			c.JSON(http.StatusFailedDependency, gin.H{"status": "error", "error": token.Error()})
