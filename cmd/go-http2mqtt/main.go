@@ -3,10 +3,10 @@ package main
 import (
 	//	"github.com/go-delve/delve/pkg/config"
 
-	"github.com/freedreamer82/go-http2mqtt/internal/pkg/config"
 	"encoding/json"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/freedreamer82/go-http2mqtt/internal/pkg/config"
 	"github.com/freedreamer82/go-http2mqtt/pkg/http2mqtt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/mux"
@@ -15,21 +15,23 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 )
 
 var (
 	_app = kingpin.New("htt2mqtt", "bridge between http and mqtt")
 
-	_logFile        = _app.Flag("log", "log path file").Short('l').String()
-	_logFolder      = _app.Flag("logFolder", "log path").Default("").Short('f').String()
-	_logEnabled     = _app.Flag("debug", "").Short('d').Bool()
-	_configFile     = _app.Flag("config", "config TOML file ").Short('c').String()
-	_restAPIhost    = _app.Flag("rest config", "rest EndPoint host IP:PORT").Short('r').Default("false").Bool()
-	_host           = _app.Arg("host", "http server URL with port").Required().String()
-	_broker         = _app.Arg("broker", "Broker mqtt URL ip:port").Required().String()
-	_user           = _app.Flag("user", "username").Short('u').Default("").String()
-	_password       = _app.Flag("password", "password").Short('p').Default("").String()
-	_profileEnabled = _app.Flag("pprof debug ", "pprof on /debug/pprof/profile").Short('i').Default("false").Bool()
+	_logFile           = _app.Flag("log", "log path file").Short('l').String()
+	_logFolder         = _app.Flag("logFolder", "log path").Default("").Short('f').String()
+	_logEnabled        = _app.Flag("debug", "").Short('d').Bool()
+	_configFile        = _app.Flag("config", "config TOML file ").Short('c').String()
+	_restAPIhost       = _app.Flag("rest config", "rest EndPoint host IP:PORT").Short('r').Default("false").Bool()
+	_host              = _app.Arg("host", "http server URL with port").Required().String()
+	_broker            = _app.Arg("broker", "Broker mqtt URL ip:port").Required().String()
+	_user              = _app.Flag("user", "username").Short('u').Default("").String()
+	_password          = _app.Flag("password", "password").Short('p').Default("").String()
+	_brokerCredentials = _app.Flag("broker credentials", "broker user:password").Short('k').Default("").String()
+	_profileEnabled    = _app.Flag("pprof debug ", "pprof on /debug/pprof/profile").Short('i').Default("false").Bool()
 
 	//Global vars
 	_appConfig *config.Config
@@ -116,6 +118,13 @@ func main() {
 
 	opts := mqtt.ClientOptions{}
 	opts.AddBroker("tcp://" + *_broker)
+	if *_brokerCredentials != "" {
+		credentials := strings.Split(*_brokerCredentials, ":")
+		if len(credentials) == 2 {
+			opts.Username = strings.TrimSpace(credentials[0])
+			opts.Password = strings.TrimSpace(credentials[1])
+		}
+	}
 
 	host := *_host
 	if *_restAPIhost != false {
@@ -133,7 +142,7 @@ func main() {
 		_bridge.SetGinAuth("user", "pass")
 	}
 
-	if (*_profileEnabled) {
+	if *_profileEnabled {
 		_bridge.EnableProfiling(true)
 	}
 	_bridge.Run(host)

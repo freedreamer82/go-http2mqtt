@@ -24,6 +24,11 @@ to start deamon (note port is required in the host)
 $ cd  cmd/go-http2mqtt/
 $ ./go-http2mqtt <host:port> <mqttbroker:port>
 ```
+if broker requires credentials
+```sh
+$ cd  cmd/go-http2mqtt/
+$ ./go-http2mqtt <host:port> <mqttbroker:port> -k <username:password>
+```
 if you want to authenticate the API with user:password
 ```sh
 $ cd  cmd/go-http2mqtt/
@@ -62,14 +67,14 @@ the json payload is:
 "qos and "retained" fields are optionals
 
 ```sh
-curl -u $user:$pass -i -X POST -H "Content-Type: application/json" -d '{"topic":""/topic/1" , "data": "this is a test"}' http://localhost:8000/publish
+curl -u $user:$pass -i -X POST -H "Content-Type: application/json" -d '{"topic":"/topic/1" , "data": "this is a test"}' http://localhost:8000/publish
 ```
 ##### localhost:8000/subscribe {POST}
 the json payload is:
 ```json
 {
     "topic": "/topic/1",
-    "qos" : 0,
+    "qos" : 0
 }
 ```
 "qos is optional
