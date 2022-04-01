@@ -121,8 +121,8 @@ func main() {
 	if *_brokerCredentials != "" {
 		credentials := strings.Split(*_brokerCredentials, ":")
 		if len(credentials) == 2 {
-			opts.Username = credentials[0]
-			opts.Password = credentials[1]
+			opts.Username = strings.TrimSpace(credentials[0])
+			opts.Password = strings.TrimSpace(credentials[1])
 		}
 	}
 
