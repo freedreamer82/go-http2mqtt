@@ -46,6 +46,7 @@ http://localhost:8000/publish
 http://localhost:8000/subscribe
 http://localhost:8000/broker
 http://localhost:8000/streams
+ws://localhost:8000/ws
 ```
 
 
@@ -103,6 +104,14 @@ data:"eyJjb21tYW5kIjoicmVzZXQifQ=="
 
 ```
 curl -u $user:$pass curl -i -X GET -H "Content-Type: application/json" http://localhost:8000/streams
+```
+
+
+##### localhost:8000/ws{GET}
+websocket stream to receive messages of the subscribed topics
+(using websocat from https://github.com/vi/websocat)
+```
+websocat ws://localhost:8000/ws
 ```
 
 ### Development

@@ -2,21 +2,24 @@ package http2mqtt
 
 import (
 	"encoding/json"
+	log "github.com/sirupsen/logrus"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/freedreamer82/go-http2mqtt/pkg/clients"
+
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-	"github.com/freedreamer82/go-http2mqtt/pkg/sseClients"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	//"time"
 )
 
 const MaxClientIdLen = 14
+const channelClientSize = 50
 
 func (s *Http2Mqtt) SetGinAuth(user string, password string) {
 	s.user = user
@@ -25,10 +28,10 @@ func (s *Http2Mqtt) SetGinAuth(user string, password string) {
 
 // PublishMessage is the sample data transfer object for publish http route
 type PublishMessage struct {
-	Topic    string                 `binding:"required" json:"topic"`
+	Topic    string          `binding:"required" json:"topic"`
 	Message  json.RawMessage `binding:"required" json:"data"`
-	Qos      byte                   `json:"qos"`
-	Retained bool                   `json:"retained"`
+	Qos      byte            `json:"qos"`
+	Retained bool            `json:"retained"`
 }
 
 type SubScribeMessage struct {
@@ -44,13 +47,19 @@ type Http2Mqtt struct {
 	mqttOpts      *MQTT.ClientOptions
 	user          string
 	password      string
-	sseCLients    *sseClients.SseCLients
+	clients       *clients.Clients
 	subsMutex     sync.Mutex
 	subs          []SubScribeMessage
 	profileEnable bool
 	prefixRestApi string
 	streamEnabled bool
 	streamChannel chan MQTT.Message
+}
+
+type WsHandler struct {
+	id   string
+	ws   *websocket.Conn
+	send *chan MQTT.Message
 }
 
 func getRandomClientId() string {
@@ -195,11 +204,11 @@ func (m *Http2Mqtt) onBrokerData(client MQTT.Client, msg MQTT.Message) {
 	}
 
 	//m.mqttMsgChan <- msg
-	m.sseCLients.FuncIterationForClients(func(ssecl *sseClients.SseClient, isConnected bool) bool {
+	m.clients.FuncIterationForClients(func(cl *clients.Client, isConnected bool) bool {
 
 		if isConnected {
 			//casting to *chan of MQTT.Message
-			ch := ssecl.Data["chan"].(*chan MQTT.Message)
+			ch := cl.Data["chan"].(*chan MQTT.Message)
 			*ch <- msg
 			return true
 		}
@@ -265,7 +274,7 @@ func (m *Http2Mqtt) setupMQTT() {
 
 func (m *Http2Mqtt) setupGin() {
 
-	m.sseCLients = sseClients.New()
+	m.clients = clients.New()
 	if m.Group == nil {
 		m.Group = &m.Router.RouterGroup
 	}
@@ -339,14 +348,50 @@ func (m *Http2Mqtt) setupGin() {
 	})
 
 	// Streams SSE
-	m.Group.GET(m.prefixRestApi+"/streams", func(c *gin.Context) {
+	m.Group.GET(m.prefixRestApi+"/ws", func(c *gin.Context) {
 
-		data := make(sseClients.SseClientData)
+		data := make(clients.ClientData)
 
-		ch := make(chan MQTT.Message, 5)
+		ch := make(chan MQTT.Message, channelClientSize)
 		data["chan"] = &ch //keep only the pointer here...and closinf from this function later(2 avoid copy)
 
-		cl := m.sseCLients.RegisterNewCLientWithData(data)
+		cl := m.clients.RegisterNewClientWithData(clients.WsClient, data)
+		log.Println("new connection id:" + cl.Id)
+
+		var wsUpgrader = websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+		}
+
+		ws, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			log.Errorf("Failed to set websocket upgrade: %v\n", err)
+			close(ch)
+			return
+		}
+
+		wsHandler := &WsHandler{id: cl.Id, ws: ws, send: &ch}
+
+		onClose := func() {
+			log.Infof("Closing ws connection")
+			close(ch)
+			ws.Close()
+			m.clients.RemoveClient(cl)
+			log.Infof("removing ws client: " + cl.Id)
+		}
+
+		go wsHandler.wsReadProcess(onClose)
+		go wsHandler.wsWriteProcess(onClose)
+	})
+
+	m.Group.GET(m.prefixRestApi+"/streams", func(c *gin.Context) {
+
+		data := make(clients.ClientData)
+
+		ch := make(chan MQTT.Message, channelClientSize)
+		data["chan"] = &ch //keep only the pointer here...and closinf from this function later(2 avoid copy)
+
+		cl := m.clients.RegisterNewClientWithData(clients.SseClient, data)
 		log.Println("new connection id:" + cl.Id)
 
 		defer close(ch)
@@ -366,7 +411,7 @@ func (m *Http2Mqtt) setupGin() {
 					}
 
 				case <-c.Writer.CloseNotify():
-					m.sseCLients.RemoveCLient(cl)
+					m.clients.RemoveClient(cl)
 					//close(ch)
 					log.Println("removing sse client: " + cl.Id)
 					return false
@@ -378,5 +423,38 @@ func (m *Http2Mqtt) setupGin() {
 
 	if m.profileEnable {
 		pprof.Register(m.Router, m.prefixRestApi+"/debug/pprof")
+	}
+}
+
+func (h *WsHandler) wsWriteProcess(onClose func()) {
+	defer onClose()
+	for {
+		select {
+		case msg := <-*h.send:
+			if msg != nil {
+				err := h.ws.WriteMessage(websocket.TextMessage, msg.Payload())
+				if err != nil {
+					log.Errorf("error: %v", err)
+					return
+				}
+			}
+		}
+	}
+}
+
+func (h *WsHandler) wsReadProcess(onClose func()) {
+	defer onClose()
+	for {
+		_, message, err := h.ws.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err) || websocket.IsCloseError(err) || err == io.EOF {
+				log.Infof("Connection close client id: %s", h.id)
+			} else {
+				log.Errorf("error: %v", err)
+			}
+			break
+		} else {
+			log.Tracef("ws message received: %s", string(message))
+		}
 	}
 }

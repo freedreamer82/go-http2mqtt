@@ -11,6 +11,7 @@ require (
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/gorilla/mux v1.7.4
+	github.com/gorilla/websocket v1.4.2
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.6.0
 	golang.org/x/net v0.0.0-20200506145744-7e3656a0809f // indirect
