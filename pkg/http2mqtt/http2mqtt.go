@@ -122,7 +122,7 @@ func (h *Http2Mqtt) GetMqttClient() *MQTT.Client {
 
 func (h *Http2Mqtt) EnableStream(status bool) {
 
-	h.streamEnabled = false
+	h.streamEnabled = status
 }
 
 func (h *Http2Mqtt) SetStreamChannel(ch chan MQTT.Message) {
